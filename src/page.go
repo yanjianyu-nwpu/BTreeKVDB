@@ -1,33 +1,192 @@
 package BTreeKVDB
 
-type PgId uint32 
-type TxId uint32
+import "unsafe"
+import "encoding/binary"
+
+type PgId uint64
+type TxId uint64
 type KVs []KV
-type KV_Headers []KV_Header
+type KVHeaders []KVHeader
+
+const PageHeaderSize = (uint32)(unsafe.Sizeof(PgId(0)) + unsafe.Sizeof(int(0))*3 + unsafe.Sizeof(TxId(0)))
+const KVHeaderSize = (uint32)(unsafe.Sizeof(KVHeader{}))
 
 type KV struct{
 	Key				[]byte
 	Value			[]byte
-	Next			*KV
 }
-type KV_Header struct{
-	Offset_			int //the position  in this page
-	KeySize			int //size of key
-	ValueSize		int //size of value
-	Next			*KV_Headers
+type KVHeader struct{
+	Offset_			uint32 //the position  in this page
+	KeySize			uint32 //size of key
+	ValueSize		uint32 //size of value
 }
 type Page struct{
 	Id 				PgId
-	Current_Length 	int    	//the size of current page	
-	Current_Txid 	TxId    //the latest id of writted Txid 
+	CurrentLength 	uint32   	//the size of current page	
+	CurrentTxid 	TxId    //the latest id of writted Txid 
+	Type 		uint32 //01 branch page, 02 leafpage orthers is overflow
+	KVSize 		uint32
+	kvHeaders			KVHeaders	
+	kvs			KVs	
 
-	KV_size 		int
-
-	First_kv 		*KV
-	First_kv_header *KV_Header		
 }
 
+func (p *Page)GetKVs() KVs{
+	return p.kvs
+}
+//插入KV
 func (p *Page)Put(key []byte,value []byte) bool {
+	l := len(p.kvs)
+
+	index := LowerBoundKV(key,p.kvs)
+	insertKV := KV{Key : key,Value : value}
+	tmp := make([]KV,l+1)
+	if l == 0{
+		p.kvs = []KV{insertKV}
+	}else{
+		for i:=0;i<index;i++{
+			tmp[i] = p.kvs[i]
+ 		}
+		tmp[index] = insertKV
+		for i:=index;i<(int)(p.KVSize);i++{
+			tmp[i+1] = p.kvs[i]
+		}
+		p.kvs = tmp
+	}
+	insertKVHeader := KVHeader{}
+	insertKVHeader.KeySize = (uint32)(len(key))
+	insertKVHeader.ValueSize = (uint32)(len(value))
+
+	tmpHeader := append(p.kvHeaders[:index],insertKVHeader)
+	tmpHeader = append(tmpHeader,p.kvHeaders[index:]...)
+	p.kvHeaders = tmpHeader	
+	
+	p.KVSize = uint32(len(p.kvs))
+	var tmpLength uint32
+	tmpLength = PageHeaderSize + uint32(p.KVSize)*uint32(KVHeaderSize)
+	
+	for i:=0;i<int(p.KVSize);i++{
+		p.kvHeaders[i].Offset_ = tmpLength
+		p.kvHeaders[i].KeySize = (uint32)(len(p.kvs[i].Key))
+		p.kvHeaders[i].ValueSize = (uint32)(len(p.kvs[i].Value))
+		tmpLength += (uint32)(len(p.kvs[i].Key) + len(p.kvs[i].Value))
+	}
+	p.CurrentLength = tmpLength
+	
+	return true	
+}
+func (p *Page)Get(key []byte) []byte{
+	ind:=FindKV(key,p.kvs)
+	if(ind == -1){
+		return nil 
+	}
+	return p.kvs[ind].Value
+}
+func (p *Page)Delete(key []byte)bool{
+	ind:=FindKV(key,p.kvs)
+	if ind == -1{
+		return false
+	}
+
+	p.kvHeaders = append(p.kvHeaders[:ind],p.kvHeaders[ind+1:]...)
+	p.kvs = append(p.kvs[:ind],p.kvs[ind+1:]...)
+	p.KVSize = (uint32)(len(p.kvs))
+
+	tmpLength := PageHeaderSize + p.KVSize*KVHeaderSize
+	
+	for i:=0;i<(int)(p.KVSize);i++{
+		p.kvHeaders[i].Offset_ = tmpLength
+		tmpLength += (uint32)(len(p.kvs[i].Key) + len(p.kvs[i].Value))
+	}
+	p.CurrentLength = tmpLength
 
 	return true	
+	
+}
+func (p *Page)Searlize() []byte{
+	buffer := make([]byte,4096)
+
+	tmp := 0
+	b := make([]byte,8)
+	binary.BigEndian.PutUint64(b,(uint64)(p.Id))
+
+	copy(buffer[tmp:tmp+8],b)
+	tmp += 8
+
+	binary.BigEndian.PutUint32(b,p.CurrentLength)
+	copy(buffer[tmp:tmp+4],b[:4])
+	tmp += 4
+
+	binary.BigEndian.PutUint32(b,p.Type)
+	copy(buffer[tmp:tmp+4],b[:4])
+	tmp += 4
+
+	binary.BigEndian.PutUint32(b,p.KVSize)
+	copy(buffer[tmp:tmp+4],b[:4])
+	tmp += 4
+	
+	for i:=0;i<(int)(p.KVSize);i++{
+		binary.BigEndian.PutUint32(b,p.kvHeaders[i].Offset_)
+		copy(buffer[tmp:tmp+4],b[:4])
+		tmp += 4
+
+		binary.BigEndian.PutUint32(b,p.kvHeaders[i].KeySize)
+		copy(buffer[tmp:tmp+4],b[:4])
+		tmp += 4
+
+		binary.BigEndian.PutUint32(b,p.kvHeaders[i].ValueSize)
+		copy(buffer[tmp:tmp+4],b[:4])
+		tmp += 4
+	}
+
+	for i:=0;i<(int)(p.KVSize);i++{
+		ksL:=(int)(p.kvHeaders[i].KeySize)
+		kvL:=(int)(p.kvHeaders[i].ValueSize)
+		copy(buffer[tmp:tmp+ksL],p.kvs[i].Key)
+		tmp += ksL
+		copy(buffer[tmp:tmp+kvL],p.kvs[i].Value)
+		tmp += kvL
+	}
+	return buffer
+}
+func (p *Page)Desearlize(data []byte) {
+	
+	tmp := 0
+	p.Id = (PgId)(binary.BigEndian.Uint64(data[tmp:tmp+8]))
+	tmp +=8
+
+	p.CurrentLength = binary.BigEndian.Uint32(data[tmp:tmp+4])
+	tmp+=4
+
+	p.Type = binary.BigEndian.Uint32(data[tmp:tmp+4])
+	tmp+=4
+
+	p.KVSize = binary.BigEndian.Uint32(data[tmp:tmp+4])
+	tmp+=4
+
+	p.kvHeaders = make([]KVHeader,(int)(p.KVSize))
+	for i:=0;i<(int)(p.KVSize);i++{
+		Header := KVHeader{}
+		Header.Offset_ = (uint32)(binary.BigEndian.Uint32(data[tmp:tmp+4]))
+		tmp += 4
+
+		Header.KeySize = (uint32)(binary.BigEndian.Uint32(data[tmp:tmp+4]))
+		tmp += 4
+
+		Header.ValueSize = (uint32)(binary.BigEndian.Uint32(data[tmp:tmp+4]))
+		tmp += 4
+		p.kvHeaders[i] = Header
+		//p.kvHeaders = append(p.kvHeaders,Header)
+	}
+
+	p.kvs = make([]KV,(int)(p.KVSize))
+	for i:=0;i<(int)(p.KVSize);i++{
+		kL := (int)(p.kvHeaders[i].KeySize)
+		vL := (int)(p.kvHeaders[i].ValueSize)
+		p.kvs[i].Key = data[tmp:tmp+kL]
+		tmp += kL
+		p.kvs[i].Value = data[tmp:tmp+vL]
+		tmp += vL
+	}
+
 }

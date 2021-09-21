@@ -13,3 +13,12 @@ func TestByteLess(t *testing.T){
 	}
 
 }
+func TestLowerBound(t *testing.T){
+	var keys [][]byte
+	keys = append(keys,[]byte("a"))
+	keys = append(keys,[]byte("c"))
+
+	if ans:=LowerBound([]byte("b"),keys);ans!=1{
+		t.Errorf("ecept 1,but got %d",ans)
+	}
+}
