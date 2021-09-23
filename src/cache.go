@@ -31,8 +31,9 @@ func (c *LruPageCache)Init(cap int){
 }
 
 func (c *LruPageCache)Get(Id PgId)*Page{
+	
 	pageptr,ok :=  c.Map[Id]
-
+	
 	//key not exist
 	if !ok{
 		return nil
@@ -74,17 +75,22 @@ func (c *LruPageCache)Put(p *Page){
 	ptr = &PageNode{}
 	ptr.PagePtr = p
 	ptr.Next = c.ListHead.Next
+	ptr.Next.Pre = ptr
 	ptr.Pre = c.ListHead
 	c.ListHead.Next = ptr
+	ptr.Id = Id
 	c.Map[Id] = ptr
+	
 	if (c.Size < c.Capactiy){
 		c.Size += 1
 		return 
 	}else{
-		reId := c.ListTail.Pre.Id
-		delete(c.Map,reId)
+		reId := c.ListTail.Pre.PagePtr.Id
+		
 		c.ListTail.Pre.Pre.Next = c.ListTail
 		c.ListTail.Pre = c.ListTail.Pre.Pre
+		delete(c.Map,reId)
+		
 		return
 	}
 	
