@@ -24,8 +24,9 @@ type Page struct{
 	Id 				PgId
 	CurrentLength 	uint32   	//the size of current page	
 	CurrentTxid 	TxId    //the latest id of writted Txid 
-	Type 		uint32 //01 branch page, 02 leafpage orthers is overflow
+	Type 		uint32 //01 branch page, 02 leafpage, 03 rootpage
 	KVSize 		uint32
+	Version uint64
 	kvHeaders			KVHeaders	
 	kvs			KVs	
 
