@@ -36,7 +36,7 @@ func (p *Page)GetKVs() KVs{
 	return p.kvs
 }
 //插入KV
-func (p *Page)Put(key []byte,value []byte) bool {
+func (p *Page)Put(key []byte,value []byte) interface{} {
 	l := len(p.kvs)
 
 	index := LowerBoundKV(key,p.kvs)

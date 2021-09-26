@@ -1,6 +1,5 @@
 package BTreeKVDB
 import "testing"
-
 func TestSearlize(t *testing.T){
 	p := Page{}
 	p.Id = 1
@@ -42,4 +41,16 @@ func TestSearlize(t *testing.T){
 	if (string)(newPage.kvs[1].Value)!="handsome"{
 		t.Errorf("Desearlize page kvs[1s].value is wrong")
 	}
+}
+
+func TestPutInsert(t *testing.T){
+	p := &Page{}
+	key := ([]byte)("yanjianyu")
+	p.Put(key,([]byte)("handsome"))
+
+	p.Put(key,([]byte)("hcx"))
+	if ans:=p.Get(key); !ByteCompare(ans,([]byte)("hcx")){
+		t.Errorf("except get hcx but got %s",(string)(ans))
+	}
+
 }

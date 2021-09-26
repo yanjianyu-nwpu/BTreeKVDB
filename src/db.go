@@ -39,6 +39,7 @@ func (db *DB)Init(Path string){
 	db.Cache = &LruPageCache{}
 	db.Cache.Init(20000)
 
+	db.DirtyData = make(map[PgId][]*Page)
 	if db.DBSize < 100{
 		db.F.Truncate(4096*1024)
 		db.DBSize = 1024
