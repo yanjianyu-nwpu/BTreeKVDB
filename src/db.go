@@ -2,9 +2,6 @@ package BTreeKVDB
 import "os"
 import "sync"
 import "sync/atomic"
-type DBOption struct{
-	Path string
-}
 
 type DB struct{
 	Path string

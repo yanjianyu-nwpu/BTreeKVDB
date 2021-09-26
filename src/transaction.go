@@ -1,5 +1,5 @@
 package BTreeKVDB
-
+/*
 import "sync/atomic"
 const(
 	ReadingTransaction int = 1
@@ -55,4 +55,4 @@ func (t *Transaction)Commit(){
 			t.db.DirtyCacheMu.Unlock()
 		}
 	}
-}
+}*/
