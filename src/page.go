@@ -10,6 +10,7 @@ type KVHeaders []KVHeader
 
 const PageHeaderSize = (uint32)(unsafe.Sizeof(PgId(0)) + unsafe.Sizeof(int(0))*3 + unsafe.Sizeof(TxId(0)))
 const KVHeaderSize = (uint32)(unsafe.Sizeof(KVHeader{}))
+const HeaderSize = (uint32)(20)
 
 type KV struct{
 	Key				[]byte
@@ -31,12 +32,33 @@ type Page struct{
 	kvs			KVs	
 
 }
+func (p *Page)ClearUp(){
+	p.CurrentLength = 20
+	p.Type = 0
+	p.KVSize = 0
+	p.kvHeaders = KVHeaders{}
+	p.kvs= KVs{}
+}
+func (p *Page)SetPosition(){
 
+	p.KVSize = (uint32)(len(p.kvs))
+	tmpLength := PageHeaderSize + uint32(p.KVSize)*uint32(KVHeaderSize)
+	
+	for i:=0;i<int(p.KVSize);i++{
+		p.kvHeaders[i].Offset_ = tmpLength
+		p.kvHeaders[i].KeySize = (uint32)(len(p.kvs[i].Key))
+		p.kvHeaders[i].ValueSize = (uint32)(len(p.kvs[i].Value))
+		tmpLength += (uint32)(len(p.kvs[i].Key) + len(p.kvs[i].Value))
+	}
+	p.CurrentLength = tmpLength
+}
 func (p *Page)GetKVs() KVs{
 	return p.kvs
 }
-//插入KV
-func (p *Page)Put(key []byte,value []byte) interface{} {
+//插入KV,return []*page
+func (p *Page)Put(key []byte,value []byte) []*Page {
+	
+	//find the index of new kv
 	l := len(p.kvs)
 
 	index := LowerBoundKV(key,p.kvs)
@@ -74,7 +96,38 @@ func (p *Page)Put(key []byte,value []byte) interface{} {
 	}
 	p.CurrentLength = tmpLength
 	
-	return true	
+	
+	res := []*Page{p}
+	if p.CurrentLength > 4096{
+		okvs := p.kvs
+		okvHeaders := p.kvHeaders
+		
+		p.ClearUp()
+
+	
+		tmp_p := p
+
+		var tmpLength uint32
+		tmpLength = 0
+		for cur_ind:=0;cur_ind<len(okvs);cur_ind++{
+			header := KVHeader{}
+			header.KeySize = (uint32)(len(okvs[cur_ind].Key))
+			header.ValueSize = (uint32)(len(okvs[cur_ind].Value))
+			if tmpLength >= 3000 || tmpLength + header.KeySize + header.ValueSize > 4096{
+				tmp_p = &Page{}
+				tmp_p.ClearUp()
+				res = append(res,tmp_p)
+				tmpLength = PageHeaderSize
+			}
+			tmp_p.kvs = append(tmp_p.kvs,okvs[cur_ind])
+			tmp_p.kvHeaders = append(tmp_p.kvHeaders,okvHeaders[cur_ind])
+			tmpLength += (header.KeySize + header.ValueSize)
+		}
+		for i:=0;i<len(res);i++{
+			res[i].SetPosition()
+		}
+	}
+	return res	
 }
 func (p *Page)Get(key []byte) []byte{
 	ind:=FindKV(key,p.kvs)
