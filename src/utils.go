@@ -109,6 +109,7 @@ func LowerBoundKV(key []byte, kvs []KV) int {
 	}
 	for st<ed{
 		mid := (st+ed)/2
+
 		if ByteCompare(kvs[mid].Key,key){
 			return mid
 		}
@@ -118,9 +119,5 @@ func LowerBoundKV(key []byte, kvs []KV) int {
 			ed = mid-1
 		}
 	}
-	if ByteBigger(kvs[ed].Key,key) {
-		return ed
-	}else{
-		return ed+1
-	}
+	return ed
 }
