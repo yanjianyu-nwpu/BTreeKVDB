@@ -19,7 +19,11 @@ type Transaction struct{
 
 	AllocatePages []PgId  // for writing transaction rollback
 }
-
+func (t *Transaction)GetPageForWrting(p PgId){
+	//找到一个页面，逻辑是这样，先从writingPage里面找
+	//如果没有，用db.GetLastedPage找最新版本的副本
+	//不要将db中最新版本更新，因为这个再commit时候
+}
 func (t *Transaction)Begin(){
 
 	if t.Type == 1{
@@ -34,61 +38,10 @@ func (t *Transaction)Begin(){
 }
 
 func (t *Transaction)Write(Key []byte,Value []byte){
-	tmp,ok := t.WritingPages[9]
-	if !ok{
-		tmp = t.db.GetLastestPage(9)
-	}
-	Path := []*Page{}
-	PathInd := []int{}
-	if (tmp.KVSize == 0){
-		newId,_ := t.db.Freelist.Get(1)
-		b:=make([]byte,8)
-		binary.BigEndian.PutUint64(b,(uint64)(newId))
-		tmp.Put(Key,b)
-		
-		Path = append(Path,tmp)
-		tmp = &Page{}
-		tmp.Id = (PgId)(newId)
-		tmp.Version = t.DBVersion
-		tmp.Type = 2
-		tmp.Put(Key,Value)
-		tmp.SetPosition()
-
-		Path = append(Path,tmp)
-	}else{
-		for tmp.Type!=3{
-			Path = append(Path,tmp)
-			ind := (uint32)(LowerBoundKV(Key,tmp.kvs))
-			if (ind >= tmp.KVSize){
-				ind = tmp.KVSize - 1
-			}
-			if ByteLess(Key,tmp.kvs[(int)(ind)].Key){
-				ind -= 1
-			}
-			if (ind <= 0){
-				ind = 0
-			}
-			PathInd = append(PathInd,(int)(ind))
-			real_index := binary.BigEndian.Uint64(tmp.kvs[ind].Value)
-			tmp = t.db.GetLastestPage((PgId)(real_index))
-		}
-		newP := tmp.Put(Key,Value)
-		
-		for i:=0;i<len(newP);i++{
-			if newP[i].Id == 0{
-				ns,_ := t.db.Freelist.Get(1)
-				if ns == -1{
-					t.db.CapacityExpansion()
-					ns,_ = t.db.Freelist.Get(1)
-				}
-				newP[i].Type = 3
-				newP[i].Id = (PgId)(ns)
-				newP[i].Version = t.DBVersion
-			}
-		}
-
-
-	}
+		//这里的逻辑是这样
+		//先找到叶子节点，招叶子节点的时候要注意小于最小的时候，和大于最大的时候，已经lowrboundkv的值，记录路径
+		//插入叶子节点看看是不是有溢出
+		//递归到根节点，如果一层有溢出，要插入新值，并且要申请新的PgId,都要加入writingPage这个map
 }
 /*
 func (t *Transaction)Rollback(){
