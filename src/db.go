@@ -88,7 +88,9 @@ func (db *DB) GetLastestPage(Id PgId) *Page{
 	tmp := db.Cache.Get(Id)
 
 	if tmp != nil{
-		return tmp
+		res := &Page{}
+		*res = *tmp
+		return res
 	}
 	
 	tmp = &Page{}
@@ -98,7 +100,10 @@ func (db *DB) GetLastestPage(Id PgId) *Page{
 	tmp.Id = Id
 	tmp.Version = atomic.LoadUint64(&(db.CurrentVersion))
 	db.Cache.Put(tmp)
-	return tmp
+
+	res := &Page{}
+	*res = *tmp
+	return res
 }
 func (db *DB) GetPageWithVersion(Id PgId, Version uint64) *Page{
 	var PagePtr *Page
