@@ -1,6 +1,5 @@
 package BTreeKVDB
 import "testing"
-import "fmt"
 func TestSearlize(t *testing.T){
 	p := Page{}
 	p.Id = 1
@@ -55,32 +54,4 @@ func TestPutInsert(t *testing.T){
 	}
 
 }
-func TestPutInsertB(t *testing.T){
-	p := &Page{}
 
-	dic := make(map[string]string)
-	tmpL := 0
-	bs := "a"
-	var r []*Page
-	for i:=0;i<=61;i++{
-		dic[bs] = bs
-		
-		tmpL += 2*(i+1)
-		bs += "a"
-		r = p.Put(([]byte)(bs),([]byte)(bs))
-		if len(r)>=2{
-			break
-		}
-	}
-	fmt.Println(len(r))
-	fmt.Println(r[0].CurrentLength,r[0].KVSize,(string)(r[0].kvs[r[0].KVSize-1].Key))
-	for i:=0;i<int(r[0].KVSize);i++{
-		fmt.Print(len(r[0].kvs[i].Key)," ")
-	}
-	fmt.Println(" ")
-	for i:=0;i<int(r[1].KVSize);i++{
-		fmt.Print(len(r[1].kvs[i].Key)," ")
-	}
-	fmt.Println(r[1].CurrentLength,r[1].KVSize,(string)(r[1].kvs[r[1].KVSize-1].Key))
-	fmt.Println(tmpL)
-}

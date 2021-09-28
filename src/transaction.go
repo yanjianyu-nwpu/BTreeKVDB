@@ -3,6 +3,7 @@ package BTreeKVDB
 import (
 	"encoding/binary"
 	"sync/atomic"
+	"fmt"
 )
 
 const (
@@ -29,6 +30,7 @@ func (t *Transaction) GetPageForWrting(p PgId) *Page {
 	//不要将db中最新版本更新，因为这个再commit时候
 
 	r, ok := t.WritingPages[p]
+	fmt.Println(r==nil,"TTTT")
 	if !ok {
 		r = t.db.GetLastestPage(p)
 		t.WritingPages[p] = r
@@ -88,11 +90,13 @@ func (t *Transaction) Write(Key []byte, Value []byte) {
 	//插入叶子节点看看是不是有溢出
 	//递归到根节点，如果一层有溢出，要插入新值，并且要申请新的PgId,都要加入writingPage这个map
 	tmp := t.GetPageForWrting(9)
+	fmt.Println("L2")
 	//新打开的数据库
 	Path := []*Page{tmp}
 	PathInd := []PgId{}
 	//if is a new database
 	if tmp.KVSize == 0 {
+		fmt.Println("L1")
 		ns := t.GetSingleNewPage()
 		b := make([]byte, 8)
 		binary.BigEndian.PutUint64(b, (uint64)(ns))

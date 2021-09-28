@@ -2,7 +2,7 @@ package BTreeKVDB
 
 import "unsafe"
 import "encoding/binary"
-import "fmt"
+//import "fmt"
 type PgId uint64
 type TxId uint64
 type KVs []KV
@@ -100,7 +100,6 @@ func (p *Page)Put(key []byte,value []byte) []*Page {
 	res := []*Page{p}
 	if p.CurrentLength > 4096{
 
-		fmt.Println("TTTTTTTTTTTTTTT")
 		okvs := p.kvs
 		okvHeaders := p.kvHeaders
 		
@@ -133,6 +132,7 @@ func (p *Page)Put(key []byte,value []byte) []*Page {
 }
 func (p *Page)Get(key []byte) []byte{
 	ind:=FindKV(key,p.kvs)
+	//fmt.Println(ind)
 	if(ind == -1){
 		return nil 
 	}
