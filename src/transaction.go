@@ -62,6 +62,7 @@ func (t *Transaction) Begin() {
 		t.db.KeepVersionMu.Unlock()
 		return
 	}
+	t.WritingPages = make(map[PgId]*Page)
 	t.db.WritingMu.Lock()
 	t.DBVersion = atomic.AddUint64(&(t.db.CurrentVersion), 1)
 }
@@ -213,21 +214,25 @@ func (t *Transaction)Rollback(){
 */
 func (t *Transaction)Commit(){
 	if t.Type ==2 {
-		t.db.LruCacheMu.Lock()
 		t.db.DirtyCacheMu.Lock()
+		defer t.db.DirtyCacheMu.Unlock()
+		fmt.Println("L8")
 		for v,k := range t.WritingPages{
+			fmt.Println("oooo")
 			s:=t.db.GetLastestPage(v)
+			fmt.Println("L11")
 			_,ok := t.db.DirtyData[v]
 			if !ok{
+				
 				t.db.DirtyData[v] = []*Page{s}
 			}else{
 				t.db.DirtyData[v] = append(t.db.DirtyData[v],s)
 			}
+			fmt.Println("L10")
 			t.db.Cache.Put(k)
 		}
+		fmt.Println("L9")
 		
-		t.db.DirtyCacheMu.Unlock()
-		t.db.LruCacheMu.Unlock()
 	}
 	t.db.WritingMu.Unlock()
 }
